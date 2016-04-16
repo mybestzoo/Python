@@ -89,7 +89,7 @@ def Opt(f,N,delta):
 
 def Quant(y):
 	# n - parameter of quantization
-	n = 1.05
+	n = 2
 	# divide q by a constant
 	q = y/n
 	# round q to the integer values
@@ -99,8 +99,8 @@ def Quant(y):
 		else:
 			q[i] = int(ceil(q[i]))
 	# multiply q by the same constant
-	q = q*2**n
-	return q
+	q = q*n
+	return q,n
 
 
 # number of nodes
@@ -113,22 +113,25 @@ for n in range(0,N):
 
 # Values of function f in N nodes
 #[f,nc] = function(x) 
-f = x**5-x**2+1
+f = cos(7*x)+(x-1)**2
 
 # Normalize function f
-f = Normalize(f)
+#f = Normalize(f)
 
 # DCT coefficients of f
 y = DCT(f,N)
 
 # Quantization
-g = Quant(y)
+g,q_coeff = Quant(y)
 # calculate the last index of non zero element
 i = len(g)-1
 while g[i] == 0 and i > 0:
 	i = i-1
 print ('Number of harmonics after quantization:',i+1)
 
+# While performing quantization we were rounding down
+# Thus real coefficients lie 
+g_opt = 
 # Define the error delta THIS IS WRONG
 delta = abs(g-y[0:len(g)])
 print ('Max error:',max(delta))
@@ -138,6 +141,10 @@ u = iDCT(g,N)
 
 # Reconstruct the signal by the optimal method
 v = Opt(g,N,delta)
+
+# Calculate errors of reconstruction
+print('Error of DCT:',linalg.norm(u-f))
+print('Error of optimal method:',linalg.norm(v-f))
 
 # plot graphs
 plt.scatter(x, f, c ='g', label = 'Original')
