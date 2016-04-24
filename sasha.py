@@ -2,8 +2,10 @@ from __future__ import division
 from numpy import *
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
+import photos
 
 def toImage(I):
+	# converts matrix into image
 	img = Image.new('L',(shape(I)[0],shape(I)[1]))
 	pixels = img.load()
 	for i in range(img.size[0]):
@@ -27,28 +29,17 @@ def function(x):
 			f[i] = f[i]+coeff[n]*cos(x[i]*n)
 	return f
 
-def Normalize(im,C):
-	# Divide the function values by the norm of the derivative to fit the class: |f'|<=C
-	# DCT coefficients
-	norm = zeros(len(im))
-	for i in range(0,len(im)):
-		y = DCT(im[i,:],len(im))
-		# Derivative coefficients
-		d = zeros(len(y))
-		for n in range(0,len(y)):
-			d[n] = (-1)*y[n]*n
-		# L2 norm of the derivative
-		norm[i] = linalg.norm(d)
-	im_normalized = C*im/max(norm)
-	print(max(norm))
-	return im_normalized
-	
-def C(N):
-	# the constant  that specifies the class \|f'\|<=C
-	# partial sum of sum_0^(N-1) i^2
-	partialS = (N-1)*N*(2*N-1)
-	C = 128*sqrt(partialS)
-	return C
+def NormD(f):
+	# Norm of the derivative
+	normD = zeros(len(f))
+	y = DCT(f,len(f))
+	# Derivative coefficients
+	d = zeros(len(y))
+	for n in range(0,len(y)):
+		d[n] = (-1)*y[n]*n
+	# L2 norm of the derivative
+	normD = linalg.norm(d)
+	return normD
 
 def DCT(f,N):
 	# f - signal values
@@ -110,12 +101,13 @@ def Quantization(y,quant):
 		else:
 			q[i] = int(ceil(q[i]))
 	# multiply q by the same constant
-	q = (q+random.rand(len(q)))*quant
+	#q = (q+random.rand(len(q)))*quant
+	q = q*quant
 	return q
 
 def CompressBlock(img,C,N,quant):
 	
-	delta = ones(N)*quant#/2
+	delta = ones(N)*quant/2
 	
 	naturalMat = zeros((N,N))
 	optimalMat = zeros((N,N))
@@ -123,46 +115,58 @@ def CompressBlock(img,C,N,quant):
 	
 	for i in range(0,N):
 		f = img[i,:]
+		C = NormD(f)
 		y = DCT(f,N)
 		g = Quantization(y,quant)
+		# shift by 0.5*quant
+		for j in range(0,len(g)):
+			if g[j]>0:
+				g[j] = g[j] + 0.5*quant
+			if g[j]<0:
+				g[j] = g[j] - 0.5*quant
 		u = iDCT(g,N)
 		v = Opt(g,N,delta,C)
-		originalMat[i,:] = f
 		naturalMat[i,:] = u
 		optimalMat[i,:] = v
-	return originalMat, naturalMat, optimalMat
-	
-C = 7200
-N = 64
-quant = 2*20
+	return naturalMat, optimalMat
 
-img = Image.open('sashaBig.png')
+# MAIN CODE 
+
+C = 1
+N = 8
+quant = 2**4
+
+#img = Image.open('sashaBig.png')
+img = photos.pick_image(True)
 I = img.convert('L')
 Img = array(I)
-
-print shape(Img)
 
 original = zeros((len(Img),len(Img)))
 natural = zeros((len(Img),len(Img)))
 optimal = zeros((len(Img),len(Img)))
 
-for i in range(0,7):
-	for j in range(0,7):
-		print i,j
-		img = Img[i*64:i*64+64,j*64:j*64+64]
-		originalMat, naturalMat, optimalMat = CompressBlock(img,C,N,quant)
-		original[i*64:i*64+64,j*64:j*64+64] = originalMat
-		natural[i*64:i*64+64,j*64:j*64+64] = naturalMat
-		optimal[i*64:i*64+64,j*64:j*64+64] = optimalMat
+for i in range(0,32):
+	print i
+	for j in range(0,32):
+		img = Img[i*N:i*N+N,j*N:j*N+N]
+		naturalMat, optimalMat = CompressBlock(img,C,N,quant)
+		original[i*N:i*N+N,j*N:j*N+N] = Img[i*N:i*N+N,j*N:j*N+N]
+		natural[i*N:i*N+N,j*N:j*N+N] = naturalMat
+		optimal[i*N:i*N+N,j*N:j*N+N] = optimalMat
 
-print ('Error of natural method:', linalg.norm(original-natural))
-print ('Error of optimal method:', linalg.norm(original-optimal))		
+print ('Error of natural method:', 
+linalg.norm(original-natural))
+print ('Error of optimal method:', 
+linalg.norm(original-optimal))		
 	
-original = toImage(original)
-original.save('original.png')
+#original = toImage(original)
+#photos.save_image(original)
+#original.save('original.png')
 
 natural = toImage(natural)
-natural.save('natural.png')
+photos.save_image(natural)
+#natural.save('natural.png')
 
 optimal = toImage(optimal)
-optimal.save('optimal.png')
+photos.save_image(optimal)
+#optimal.save('optimal.png')
