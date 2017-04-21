@@ -1,0 +1,49 @@
+from __future__ import division
+import numpy as np
+from PIL import Image, ImageDraw
+
+def forward(i,j,w,h):
+	phi = 3*np.arcsin(j/h-1/2)
+	lam = (2*np.pi*i/w-np.pi) / (2* np.cos(2*phi/3)-1)
+	x = w*(lam+np.pi)/(2*np.pi)
+	y = h*(phi+np.pi/2)/np.pi
+	return x,y
+	
+def backward(i,j,w,h):
+
+	y = h*(1/2+np.sin(np.pi/3*(j/h-1/2)))
+	phi = 3*np.arcsin(y/h-1/2)
+	x = (w/2)*(1+(i/w-1/2)*(4*np.cos(2*phi/3)-2))
+	return x,y
+
+def MatToImage(I):
+	# converts matrix into image
+	img = Image.new('L',(I.shape[0],I.shape[1]))
+	pixels = img.load()
+	for i in range(img.size[0]):
+		for j in range(img.size[1]):
+			pixels[i, j] = I[j,i]
+	return img
+	
+img = Image.open('SAM_1545.jpg')
+#img = photos.pick_image(True)
+I = img.convert('L')
+Img = np.array(I)
+w = Img.shape[0]
+h = Img.shape[1]
+
+print w,h
+
+sphere = np.zeros((Img.shape[0],Img.shape[1]))
+
+for i in range(0,Img.shape[0]):
+	for j in range(0,Img.shape[1]):
+		x,y = forward(i,j,w,h)
+		if x > 0 and x < Img.shape[0] and y > 0 and y < Img.shape[1]:
+			sphere[i,j] = Img[x,y]
+		else:
+			sphere[i,j] = 0
+
+sphere = MatToImage(sphere)
+sphere.save('sphere.png')
+
